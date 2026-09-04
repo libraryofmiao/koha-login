@@ -100,6 +100,20 @@ export async function onRequest(context) {
         if (location) responseHeaders.set("Location", location);
         copySetCookies(upstream.headers, responseHeaders);
 
+        // ONLY the explicit Koha logout action redirects to our landing page.
+        // Every other Koha request follows the existing upstream behavior.
+        if (
+            incomingUrl.pathname === "/cgi-bin/koha/mainpage.pl" &&
+            incomingUrl.searchParams.get("logout.x") === "1"
+        ) {
+            responseHeaders.set("Location", incomingUrl.origin + "/index.html");
+            responseHeaders.set("Cache-Control", "no-store");
+            return new Response(null, {
+                status: 302,
+                headers: responseHeaders
+            });
+        }
+
         responseHeaders.set("Cache-Control", "no-store");
         responseHeaders.set("X-Content-Type-Options", "nosniff");
 
