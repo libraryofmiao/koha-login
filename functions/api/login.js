@@ -83,11 +83,17 @@ export async function onRequestPost(context) {
     const base = new URL(env.KOHA_BASE_URL);
     const loginUrl = new URL(KOHA_LOGIN_PATH, base);
 
+    // Use the same trusted client-IP forwarding as the normal Koha proxy so
+    // the login-created session and subsequent requests see the same IP.
+    const clientIp = context.request.headers.get("CF-Connecting-IP");
+    const clientIpHeaders = clientIp ? { "X-Forwarded-For": clientIp } : {};
+
     // Step 1: get Koha's real login page and its session cookie.
     const page = await fetch(loginUrl, {
       method: "GET",
       redirect: "manual",
       headers: {
+        ...clientIpHeaders,
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
         "Cache-Control": "no-cache"
@@ -116,6 +122,7 @@ export async function onRequestPost(context) {
       method: "POST",
       redirect: "manual",
       headers: {
+        ...clientIpHeaders,
         "Content-Type": "application/x-www-form-urlencoded",
         Cookie: cookieHeader(pageCookies),
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
