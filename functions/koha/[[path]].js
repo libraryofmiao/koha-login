@@ -24,6 +24,11 @@ function copyRequestHeaders(request, env, baseUrl) {
     headers.set("X-Forwarded-Proto", "https");
     headers.set("X-Forwarded-Host", new URL(request.url).host);
 
+    // Preserve the real client IP that Cloudflare provides. Overwrite any
+    // browser-supplied value so Koha receives a trusted, stable client IP.
+    const clientIp = request.headers.get("CF-Connecting-IP");
+    if (clientIp) headers.set("X-Forwarded-For", clientIp);
+
     if (env.KOHA_ACCESS_CLIENT_ID && env.KOHA_ACCESS_CLIENT_SECRET) {
         headers.set("CF-Access-Client-Id", env.KOHA_ACCESS_CLIENT_ID);
         headers.set("CF-Access-Client-Secret", env.KOHA_ACCESS_CLIENT_SECRET);
