@@ -100,7 +100,16 @@ export async function onRequest(context) {
         if (location) responseHeaders.set("Location", location);
         copySetCookies(upstream.headers, responseHeaders);
 
-        responseHeaders.set("Cache-Control", "no-store");
+        // Keep dynamic Koha pages uncached, but allow versioned/static staff assets
+        // to be cached at the browser/Cloudflare edge. These assets do not carry
+        // Koha session state and their versioned filenames make long-lived caching safe.
+        const isStaticAsset =
+            incomingUrl.pathname.startsWith("/koha/intranet-tmpl/") &&
+            !incomingUrl.pathname.includes("/cgi-bin/");
+        responseHeaders.set(
+            "Cache-Control",
+            isStaticAsset ? "public, max-age=86400, s-maxage=86400" : "no-store"
+        );
         responseHeaders.set("X-Content-Type-Options", "nosniff");
         const contentType = upstream.headers.get("Content-Type") || "";
         if (contentType.includes("text/html")) {
