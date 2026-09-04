@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sub divisional Library Miao | Administrator Authentication</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+        html, body { width: 100%; min-height: 100%; }
+        body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 50% 15%, rgba(30, 64, 175, 0.18), transparent 38%), radial-gradient(circle at 50% 100%, rgba(15, 23, 42, 0.8), transparent 45%), #020617; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e2e8f0; overflow-x: hidden; }
+        #watermarkCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1; opacity: 0.15; }
+        .login-card { background: rgba(15, 23, 42, 0.94); border: 1px solid rgba(71, 85, 105, 0.55); box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55), 0 0 50px rgba(30, 64, 175, 0.08); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); position: relative; z-index: 10; }
+        .branding { width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        @keyframes premiumShine { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        .admin-heading { font-family: "Trebuchet MS", "Segoe UI", sans-serif; font-size: clamp(1.9rem, 6vw, 2.4rem); font-weight: 800; letter-spacing: 0.04em; line-height: 1.2; text-align: center; width: 100%; background: linear-gradient(90deg, #93c5fd, #ffffff, #bfdbfe, #ffffff, #93c5fd); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 25px rgba(59, 130, 246, 0.12); animation: premiumShine 5s linear infinite; }
+        .admin-heading span { display: block; }
+        .divider-line { height: 1px; width: 42px; background: linear-gradient(90deg, transparent, #2563eb, transparent); }
+        .digit-box { width: 52px; height: 62px; text-align: center; font-size: 25px; font-weight: 700; color: #f8fafc; background: #020617; border: 1px solid #334155; border-radius: 10px; outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease; -webkit-text-security: disc; }
+        .digit-box:hover { border-color: #475569; }
+        .digit-box:focus { border-color: #3b82f6; background: #0f172a; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16), 0 0 18px rgba(37, 99, 235, 0.08); transform: translateY(-1px); }
+        .digit-box.filled { border-color: #2563eb; }
+        .authenticate-btn { transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease; }
+        .authenticate-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25); }
+        .authenticate-btn:active { transform: translateY(0); }
+        .error-message { animation: errorAppear 0.2s ease; }
+        @keyframes errorAppear { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 600px) { .branding { width: 100%; align-items: center; } }
+        @media (max-width: 420px) { .digit-box { width: 43px; height: 55px; font-size: 22px; } .admin-heading { font-size: 1.7rem; } }
+        @media (max-width: 350px) { .digit-box { width: 39px; height: 52px; font-size: 20px; } .admin-heading { font-size: 1.5rem; } }
+    </style>
+</head>
+<body class="antialiased">
+    <canvas id="watermarkCanvas"></canvas>
+    <main class="min-h-screen flex flex-col items-center justify-center px-5 py-8">
+        <section class="login-card w-full max-w-md rounded-2xl p-8 sm:p-10">
+            <div class="branding text-center mb-9">
+                <!-- PASTE YOUR BASE64 STRING IN THE SRC ATTRIBUTE BELOW -->
+                <img src="https://ik.imagekit.io/libraryofmiao/Login-Page-Logo/cbimage.jpg" alt="Sub divisional Library Miao Logo" class="mx-auto mb-0 w-32 h-32 rounded-full border-2 border-blue-400/30 shadow-[0_0_30px_rgba(59,130,246,0.25)] object-cover">
+            </div>
+            <div class="text-center mb-7">
+                <h2 class="admin-heading"><span>Welcome</span><span>Administrator</span></h2>
+                <div class="flex items-center justify-center gap-3 mt-5"><span class="divider-line"></span><i class="fa-solid fa-shield-halved text-blue-400 text-sm"></i><span class="divider-line"></span></div>
+                <p class="mt-4 text-sm sm:text-base text-slate-400 tracking-wide">Please enter your credentials to continue.</p>
+            </div>
+            <form id="pinForm" autocomplete="off" novalidate>
+                <div class="flex justify-center gap-2 sm:gap-3 mb-7">
+                    <input class="digit-box" type="text" inputmode="numeric" maxlength="1" autocomplete="new-password" autocapitalize="off" spellcheck="false" aria-label="Credential digit 1">
+                    <input class="digit-box" type="text" inputmode="numeric" maxlength="1" autocomplete="new-password" autocapitalize="off" spellcheck="false" aria-label="Credential digit 2">
+                    <input class="digit-box" type="text" inputmode="numeric" maxlength="1" autocomplete="new-password" autocapitalize="off" spellcheck="false" aria-label="Credential digit 3">
+                    <input class="digit-box" type="text" inputmode="numeric" maxlength="1" autocomplete="new-password" autocapitalize="off" spellcheck="false" aria-label="Credential digit 4">
+                    <input class="digit-box" type="text" inputmode="numeric" maxlength="1" autocomplete="new-password" autocapitalize="off" spellcheck="false" aria-label="Credential digit 5">
+                    <input class="digit-box" type="text" inputmode="numeric" maxlength="1" autocomplete="new-password" autocapitalize="off" spellcheck="false" aria-label="Credential digit 6">
+                </div>
+                <div id="errorMessage" class="error-message hidden mb-5 text-center text-sm text-red-400 bg-red-950/30 border border-red-900/50 rounded-lg px-4 py-3"></div>
+                <button type="submit" id="submitBtn" class="authenticate-btn w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-600 text-white font-bold py-3.5 px-6 rounded-xl border border-blue-600 shadow-lg"><i class="fa-solid fa-shield-halved"></i><span id="btnText">Authenticate</span></button>
+            </form>
+        </section>
+        <canvas id="footerCanvas" width="340" height="30" class="mt-8 mx-auto block"></canvas>
+    </main>
+    <script>
+        document.addEventListener("contextmenu", (e) => e.preventDefault());
+        document.addEventListener("keydown", (e) => { if (e.key === "F12" || (e.ctrlKey && e.shiftKey && ["I", "J", "C"].includes(e.key.toUpperCase())) || (e.ctrlKey && e.key.toUpperCase() === "U")) { e.preventDefault(); e.stopPropagation(); } });
+        
+        function renderFooterCanvas() { 
+            const canvas = document.getElementById("footerCanvas"); 
+            if (!canvas) return; 
+            const ctx = canvas.getContext("2d"); 
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            ctx.font = "12px sans-serif"; 
+            ctx.fillStyle = "#64748b"; 
+            ctx.textAlign = "center"; 
+            ctx.fillText("© 2026 Sub divisional Library Miao. All rights reserved", canvas.width / 2, 18); 
+        }
+        
+        function initWatermark() { 
+            const canvas = document.getElementById("watermarkCanvas"); 
+            if (!canvas) return; 
+            const ctx = canvas.getContext("2d"); 
+            canvas.width = window.innerWidth; 
+            canvas.height = window.innerHeight; 
+            ctx.font = "12px monospace"; 
+            ctx.fillStyle = "rgba(148, 163, 184, 0.4)"; 
+            ctx.rotate((-20 * Math.PI) / 180); 
+            const text = `SUB DIVISIONAL LIBRARY MIAO SECURE PORTAL | ${new Date().toISOString().slice(0, 10)} | ${window.screen.width}x${window.screen.height}`; 
+            for (let x = -canvas.width; x < canvas.width * 2; x += 300) { 
+                for (let y = -canvas.height; y < canvas.height * 2; y += 100) { 
+                    ctx.fillText(text, x, y); 
+                } 
+            } 
+        }
+        
+        const boxes = document.querySelectorAll(".digit-box"), 
+              pinForm = document.getElementById("pinForm"), 
+              errorMessage = document.getElementById("errorMessage"), 
+              btnText = document.getElementById("btnText");
+              
+        boxes.forEach((box, index) => { 
+            box.addEventListener("input", function() {
+                this.value = this.value.replace(/[^0-9]/g, ""); 
+                if (this.value) {
+                    this.classList.add("filled");
+                    if (index < boxes.length - 1) boxes[index + 1].focus();
+                } else {
+                    this.classList.remove("filled");
+                }
+                hideError();
+            }); 
+            box.addEventListener("keydown", function(event) {
+                if (event.key === "Backspace" && !this.value && index > 0) {
+                    boxes[index - 1].focus();
+                    boxes[index - 1].select();
+                }
+                if (event.key === "ArrowLeft" && index > 0) boxes[index - 1].focus();
+                if (event.key === "ArrowRight" && index < boxes.length - 1) boxes[index + 1].focus();
+            }); 
+            box.addEventListener("paste", function(event) {
+                event.preventDefault();
+                const pasted = (event.clipboardData || window.clipboardData).getData("text").replace(/[^0-9]/g, "").slice(0, 6);
+                pasted.split("").forEach((digit, i) => {
+                    if (boxes[i]) {
+                        boxes[i].value = digit;
+                        boxes[i].classList.add("filled");
+                    }
+                });
+                if (pasted.length) boxes[Math.min(pasted.length, 6) - 1].focus();
+                hideError();
+            }); 
+        });
+        
+        pinForm.addEventListener("submit", async function(event) {
+            event.preventDefault();
+            const credential = Array.from(boxes).map(box => box.value).join("");
+            if (credential.length !== 6) {
+                showError("Please enter your complete 6-digit credentials.");
+                boxes[Math.min(credential.length, 5)].focus();
+                return;
+            }
+            btnText.textContent = "Authenticating...";
+            try {
+                const response = await fetch("/api/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ pin: credential })
+                });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    hideError();
+                    btnText.textContent = "Redirecting to Koha...";
+                    window.location.replace(data.redirect || "/koha/cgi-bin/koha/mainpage.pl");
+                } else {
+                    showError(data.error || "Invalid administrative passcode.");
+                    btnText.textContent = "Authenticate";
+                }
+            } catch (err) {
+                showError("Server connection error. Please try again.");
+                btnText.textContent = "Authenticate";
+            }
+        });
+        
+        function showError(msg) { 
+            errorMessage.textContent = msg; 
+            errorMessage.classList.remove("hidden"); 
+        } 
+        function hideError() { 
+            errorMessage.classList.add("hidden"); 
+        }
+        
+        window.addEventListener("load", () => { 
+            renderFooterCanvas(); 
+            initWatermark(); 
+            boxes[0].focus(); 
+        }); 
+        window.addEventListener("resize", initWatermark);
+    </script>
+</body>
+</html>
