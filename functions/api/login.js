@@ -131,16 +131,6 @@ export async function onRequestPost(context) {
     const location = login.headers.get("Location") || "";
     const locationUrl = location ? new URL(location, loginUrl) : null;
 
-    // Koha normally redirects to the staff interface after a successful login.
-    // Some installations return the dashboard directly instead, so support both.
-    let dashboardResponse = false;
-    if (!location && login.status >= 200 && login.status < 300) {
-      const loginBody = await login.text();
-      dashboardResponse =
-        /logout/i.test(loginBody) &&
-        !/name=["']login_userid["']/i.test(loginBody);
-    }
-
     const redirectSuccess = Boolean(
       locationUrl &&
       locationUrl.hostname === base.hostname &&
@@ -148,7 +138,9 @@ export async function onRequestPost(context) {
       locationUrl.pathname.startsWith("/cgi-bin/koha/")
     );
 
-    const sessionSuccess = hasSessionCookie(allCookies) && (redirectSuccess || dashboardResponse);
+    // A successful Koha login establishes CGISESSID. Do not download and parse
+    // the entire dashboard HTML here just to decide whether authentication worked.
+    const sessionSuccess = hasSessionCookie(allCookies) && (redirectSuccess || (login.status >= 200 && login.status < 300));
 
     if (!sessionSuccess) {
       console.error("Koha authentication failed", {
