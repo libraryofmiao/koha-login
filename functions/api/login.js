@@ -1,4 +1,4 @@
-const KOHA_LOGIN_PATH = "/cgi-bin/koha/mainpage.pl";
+import { performKohaLogin } from "../_shared/kohaAuth.js";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -10,64 +10,13 @@ function json(data, status = 200) {
   });
 }
 
-function getSetCookies(headers) {
-  if (typeof headers.getSetCookie === "function") {
-    return headers.getSetCookie() || [];
-  }
-  const value = headers.get("set-cookie");
-  if (!value) return [];
-  return value.split(/,(?=\s*[^;,=\s]+=[^;,]*)/);
-}
-
-function cookieHeader(setCookies) {
-  const jar = new Map();
-  for (const raw of setCookies || []) {
-    const pair = raw.split(";", 1)[0].trim();
-    const eq = pair.indexOf("=");
-    if (eq > 0) jar.set(pair.slice(0, eq), pair.slice(eq + 1));
-  }
-  return Array.from(jar.entries()).map(([k, v]) => `${k}=${v}`).join("; ");
-}
-
-function mergeSetCookies(first, second) {
-  return [...(first || []), ...(second || [])];
-}
-
-function hiddenFields(html) {
-  const result = {};
-  for (const tag of html.match(/<input\b[^>]*>/gi) || []) {
-    const name = tag.match(/\bname\s*=\s*["']([^"']+)["']/i)?.[1];
-    if (!name) continue;
-    const value = tag.match(/\bvalue\s*=\s*["']([^"']*)["']/i)?.[1] || "";
-    result[name] = value;
-  }
-  return result;
-}
-
-function hasSessionCookie(cookies) {
-  return (cookies || []).some((raw) => /^\s*CGISESSID\s*=/i.test(raw));
-}
-
-function rewriteCookie(raw) {
-  return raw
-    .replace(/;\s*Domain=[^;]+/gi, "")
-    .replace(/;\s*Path=[^;]*/gi, "; Path=/koha");
-}
-
 export async function onRequestPost(context) {
   try {
     const env = context.env;
     const body = await context.request.json().catch(() => ({}));
     const pin = String(body.pin || body.code || "").trim();
 
-    const configured = {
-      SECRET_PIN: Boolean(env.SECRET_PIN),
-      KOHA_USER: Boolean(env.KOHA_USER),
-      KOHA_PASS: Boolean(env.KOHA_PASS),
-      KOHA_BASE_URL: Boolean(env.KOHA_BASE_URL)
-    };
-
-    if (!configured.SECRET_PIN) {
+    if (!env.SECRET_PIN) {
       return json({ success: false, error: "Administrative PIN is not configured." }, 500);
     }
 
@@ -75,94 +24,30 @@ export async function onRequestPost(context) {
       return json({ success: false, error: "Invalid administrative passcode." }, 401);
     }
 
-    if (!configured.KOHA_USER || !configured.KOHA_PASS || !configured.KOHA_BASE_URL) {
-      console.error("Missing Koha bindings", configured);
-      return json({ success: false, error: "Koha authentication is not configured.", configured }, 500);
+    if (!env.KOHA_USER || !env.KOHA_PASS || !env.KOHA_BASE_URL) {
+      console.error("Missing Koha bindings", {
+        KOHA_USER: Boolean(env.KOHA_USER),
+        KOHA_PASS: Boolean(env.KOHA_PASS),
+        KOHA_BASE_URL: Boolean(env.KOHA_BASE_URL)
+      });
+      return json({ success: false, error: "Koha authentication is not configured." }, 500);
     }
 
-    const base = new URL(env.KOHA_BASE_URL);
-    const loginUrl = new URL(KOHA_LOGIN_PATH, base);
-
-    // Use the same trusted client-IP forwarding as the normal Koha proxy so
-    // the login-created session and subsequent requests see the same IP.
     const clientIp = context.request.headers.get("CF-Connecting-IP");
-    const clientIpHeaders = clientIp ? { "X-Forwarded-For": clientIp } : {};
+    const result = await performKohaLogin(env, clientIp);
 
-    // Step 1: get Koha's real login page and its session cookie.
-    const page = await fetch(loginUrl, {
-      method: "GET",
-      redirect: "manual",
-      headers: {
-        ...clientIpHeaders,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        "Cache-Control": "no-cache"
-      }
-    });
-
-    const pageCookies = getSetCookies(page.headers);
-    const html = await page.text();
-
-    if (!page.ok && page.status !== 302 && page.status !== 303) {
-      console.error("Koha login page failed", page.status);
-      return json({ success: false, error: "Unable to reach Koha staff login.", status: page.status }, 502);
-    }
-
-    // Step 2: reproduce the actual Koha form, including every hidden field.
-    const fields = hiddenFields(html);
-    fields.login_userid = env.KOHA_USER;
-    fields.login_password = env.KOHA_PASS;
-    fields.op = "cud-login";
-    fields.koha_login_context = "intranet";
-
-    const form = new URLSearchParams();
-    for (const [key, value] of Object.entries(fields)) form.set(key, value);
-
-    const login = await fetch(loginUrl, {
-      method: "POST",
-      redirect: "manual",
-      headers: {
-        ...clientIpHeaders,
-        "Content-Type": "application/x-www-form-urlencoded",
-        Cookie: cookieHeader(pageCookies),
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        Referer: loginUrl.toString(),
-        Origin: base.origin
-      },
-      body: form.toString()
-    });
-
-    const loginCookies = getSetCookies(login.headers);
-    const allCookies = mergeSetCookies(pageCookies, loginCookies);
-    const location = login.headers.get("Location") || "";
-    const locationUrl = location ? new URL(location, loginUrl) : null;
-
-    const redirectSuccess = Boolean(
-      locationUrl &&
-      locationUrl.hostname === base.hostname &&
-      locationUrl.port === base.port &&
-      locationUrl.pathname.startsWith("/cgi-bin/koha/")
-    );
-
-    // A successful Koha login establishes CGISESSID. Do not download and parse
-    // the entire dashboard HTML here just to decide whether authentication worked.
-    const sessionSuccess = hasSessionCookie(allCookies) && (redirectSuccess || (login.status >= 200 && login.status < 300));
-
-    if (!sessionSuccess) {
+    if (!result.success) {
       console.error("Koha authentication failed", {
-        status: login.status,
-        location,
-        cookie_names: allCookies.map((c) => c.split("=", 1)[0]).join(","),
-        has_session_cookie: hasSessionCookie(allCookies)
+        status: result.status,
+        error: result.error,
+        hasSessionCookie: result.hasSessionCookie
       });
       return json({
         success: false,
-        error: "Koha rejected the staff login.",
-        status: login.status,
-        has_session_cookie: hasSessionCookie(allCookies),
-        redirect: Boolean(redirectSuccess)
-      }, 502);
+        error: result.error || "Koha rejected the staff login.",
+        status: result.status,
+        hasSessionCookie: result.hasSessionCookie
+      }, result.status || 502);
     }
 
     const response = json({
@@ -170,15 +55,7 @@ export async function onRequestPost(context) {
       redirect: "/koha/cgi-bin/koha/mainpage.pl"
     });
 
-    // Give the browser Koha's session cookie on the /koha proxy path.
-    // The proxy will forward it back to Koha on every request.
-    const unique = new Map();
-    for (const raw of allCookies) {
-      const rewritten = rewriteCookie(raw);
-      const key = rewritten.split("=", 1)[0];
-      unique.set(key, rewritten);
-    }
-    for (const cookie of unique.values()) {
+    for (const cookie of result.cookies) {
       response.headers.append("Set-Cookie", cookie);
     }
 
