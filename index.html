@@ -83,8 +83,10 @@
             ctx.font = "12px monospace"; 
             ctx.fillStyle = "rgba(148, 163, 184, 0.4)"; 
             ctx.rotate((-20 * Math.PI) / 180); 
-            const text = `SUB DIVISIONAL LIBRARY MIAO SECURE PORTAL | ${new Date().toISOString().slice(0, 10)} | ${window.screen.width}x${window.screen.height}`; 
-            for (let x = -canvas.width; x < canvas.width * 2; x += 300) { 
+            const text = `SUB DIVISIONAL LIBRARY MIAO SECURE PORTAL | ${new Date().toISOString().slice(0, 10)}`; 
+            const gapX = 40; 
+            const stepX = ctx.measureText(text).width + gapX; 
+            for (let x = -canvas.width; x < canvas.width * 2; x += stepX) { 
                 for (let y = -canvas.height; y < canvas.height * 2; y += 100) { 
                     ctx.fillText(text, x, y); 
                 } 
